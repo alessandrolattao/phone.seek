@@ -1,0 +1,88 @@
+services:
+  backend:
+    build: ./backend
+    user: "${UID}:${GID}"
+    volumes:
+      - ./backend:/app
+      - ./data:/app/data
+      - ./images:/app/images
+    environment:
+      - QDRANT_HOST=qdrant
+      - QDRANT_PORT=6334
+      - EMBEDDER_URL=http://embedder:8000
+      - LISTEN_ADDR=:8080
+      - IMAGES_DIR=/app/images
+      - HOME=/tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      qdrant:
+        condition: service_healthy
+      embedder:
+        condition: service_healthy
+
+  embedder:
+    build: ./embedder
+    user: "${UID}:${GID}"
+    volumes:
+      - ./images:/app/images:ro
+      - ./models_cache:/tmp/.cache
+    environment:
+      - HOME=/tmp
+      - LOGNAME=appuser
+      - OMP_NUM_THREADS=24
+      - MKL_NUM_THREADS=24
+      - TORCH_NUM_THREADS=24
+      - TOKENIZERS_PARALLELISM=true
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 120s
+
+  frontend:
+    build: ./frontend
+    user: "${UID}:${GID}"
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "5173:5173"
+    environment:
+      - HOME=/tmp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:5173"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  qdrant:
+    build: ./qdrant
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  qdrant_data:
+

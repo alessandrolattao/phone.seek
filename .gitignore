@@ -1,0 +1,20 @@
+tmp/
+data/
+images/
+models_cache/
+*.log
+.env
+.claude/
+.playwright-mcp/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Node
+node_modules/
+frontend/dist/
+
+# Go
+backend/tmp/
